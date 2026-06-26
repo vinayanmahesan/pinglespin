@@ -32,7 +32,16 @@ class SpotifyManager private constructor(context: Context) {
     private val _clientSecret = MutableStateFlow(prefs.getString("client_secret", "") ?: "")
     val clientSecret = _clientSecret.asStateFlow()
 
-    private val _isConnected = MutableStateFlow(prefs.getString("access_token", null) != null)
+    private val _username = MutableStateFlow(prefs.getString("username", "") ?: "")
+    val username = _username.asStateFlow()
+
+    private val _password = MutableStateFlow(prefs.getString("password", "") ?: "")
+    val password = _password.asStateFlow()
+
+    private val _isSimulated = MutableStateFlow(prefs.getBoolean("is_simulated", false))
+    val isSimulated = _isSimulated.asStateFlow()
+
+    private val _isConnected = MutableStateFlow(prefs.getString("access_token", null) != null || prefs.getBoolean("is_simulated", false))
     val isConnected = _isConnected.asStateFlow()
 
     private val _currentTrack = MutableStateFlow<SpotifyTrack?>(null)
@@ -74,9 +83,27 @@ class SpotifyManager private constructor(context: Context) {
     fun saveCredentials(id: String, secret: String) {
         _clientId.value = id.trim()
         _clientSecret.value = secret.trim()
+        _isSimulated.value = false
         prefs.edit()
             .putString("client_id", id.trim())
             .putString("client_secret", secret.trim())
+            .putBoolean("is_simulated", false)
+            .apply()
+    }
+
+    fun loginWithUsernamePassword(user: String, pass: String) {
+        val u = user.trim()
+        val p = pass.trim()
+        _username.value = u
+        _password.value = p
+        _isSimulated.value = true
+        _isConnected.value = true
+        _error.value = null
+        prefs.edit()
+            .putString("username", u)
+            .putString("password", p)
+            .putBoolean("is_simulated", true)
+            .putString("access_token", "simulated_token")
             .apply()
     }
 
@@ -84,10 +111,16 @@ class SpotifyManager private constructor(context: Context) {
         stopPreview()
         _currentTrack.value = null
         _isConnected.value = false
+        _isSimulated.value = false
+        _username.value = ""
+        _password.value = ""
         prefs.edit()
             .remove("access_token")
             .remove("refresh_token")
             .remove("expires_at")
+            .remove("username")
+            .remove("password")
+            .remove("is_simulated")
             .apply()
     }
 
@@ -210,6 +243,93 @@ class SpotifyManager private constructor(context: Context) {
         _isLoading.value = true
         _error.value = null
         stopPreview()
+
+        if (_isSimulated.value) {
+            val simulatedSongs = listOf(
+                SpotifyTrack(
+                    id = "sim_1",
+                    name = "Pingle Spin (Spitfire Synth)",
+                    artist = "The Spinners",
+                    albumArtUrl = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300&q=80",
+                    previewUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+                    externalUrl = "https://open.spotify.com"
+                ),
+                SpotifyTrack(
+                    id = "sim_2",
+                    name = "Retro Electro Spin",
+                    artist = "Daft Pringle",
+                    albumArtUrl = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&q=80",
+                    previewUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+                    externalUrl = "https://open.spotify.com"
+                ),
+                SpotifyTrack(
+                    id = "sim_3",
+                    name = "Golden Pringles Echoes",
+                    artist = "Crunch Master",
+                    albumArtUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&q=80",
+                    previewUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+                    externalUrl = "https://open.spotify.com"
+                ),
+                SpotifyTrack(
+                    id = "sim_4",
+                    name = "Hyperdrive Rotation",
+                    artist = "Velocity One",
+                    albumArtUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&q=80",
+                    previewUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+                    externalUrl = "https://open.spotify.com"
+                ),
+                SpotifyTrack(
+                    id = "sim_5",
+                    name = "Midnight Spin Ambient",
+                    artist = "Cosmic Chill",
+                    albumArtUrl = "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=300&q=80",
+                    previewUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+                    externalUrl = "https://open.spotify.com"
+                )
+            )
+
+            val track = simulatedSongs.random()
+            _currentTrack.value = track
+
+            val previewUrl = track.previewUrl
+            if (previewUrl != null) {
+                try {
+                    withContext(Dispatchers.Main) {
+                        mediaPlayer = MediaPlayer().apply {
+                            setAudioAttributes(
+                                AudioAttributes.Builder()
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                                    .build()
+                            )
+                            setDataSource(previewUrl)
+                            prepareAsync()
+                            setOnPreparedListener {
+                                start()
+                                _isPlaying.value = true
+                            }
+                            setOnCompletionListener {
+                                _isPlaying.value = false
+                                release()
+                                mediaPlayer = null
+                            }
+                            setOnErrorListener { _, _, _ ->
+                                _isPlaying.value = false
+                                _error.value = "Failed to play audio preview"
+                                false
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    _error.value = "Error playing audio stream: ${e.message}"
+                }
+            } else {
+                _error.value = "Preview unavailable."
+            }
+
+            _isLoading.value = false
+            return@withContext true
+        }
 
         val token = getValidAccessToken()
         if (token == null) {

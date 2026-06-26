@@ -1548,12 +1548,18 @@ fun OptionsScreen(
         val spotifyManager = remember { SpotifyManager.getInstance(context) }
         val spotifyClientId by spotifyManager.clientId.collectAsState()
         val spotifyClientSecret by spotifyManager.clientSecret.collectAsState()
+        val spotifyUsername by spotifyManager.username.collectAsState()
+        val spotifyPassword by spotifyManager.password.collectAsState()
+        val spotifyIsSimulated by spotifyManager.isSimulated.collectAsState()
         val spotifyIsConnected by spotifyManager.isConnected.collectAsState()
         val spotifyIsLoading by spotifyManager.isLoading.collectAsState()
         val spotifyError by spotifyManager.error.collectAsState()
 
         var editClientId by remember(spotifyClientId) { mutableStateOf(spotifyClientId) }
         var editClientSecret by remember(spotifyClientSecret) { mutableStateOf(spotifyClientSecret) }
+        var editUsername by remember(spotifyUsername) { mutableStateOf(spotifyUsername) }
+        var editPassword by remember(spotifyPassword) { mutableStateOf(spotifyPassword) }
+        var loginMethod by remember { mutableStateOf(if (spotifyClientId.isNotEmpty()) "developer" else "simple") } // "simple" or "developer"
         var showLoginDialog by remember { mutableStateOf(false) }
         val scope = androidx.compose.runtime.rememberCoroutineScope()
 
@@ -1624,74 +1630,193 @@ fun OptionsScreen(
             Spacer(modifier = Modifier.height(10.dp))
             
             if (!spotifyIsConnected) {
-              androidx.compose.material3.Text(
-                text = "Setup your Spotify Developer Credentials to connect your account:",
-                style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.7f))
-              )
-              
+              // Toggle tabs
+              Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                Box(
+                  modifier = Modifier
+                    .weight(1f)
+                    .clickable { loginMethod = "simple" }
+                    .border(
+                      width = 1.dp,
+                      color = if (loginMethod == "simple") Color(0xFF1DB954) else Color.White.copy(alpha = 0.15f),
+                      shape = RoundedCornerShape(8.dp)
+                    )
+                    .background(
+                      if (loginMethod == "simple") Color(0xFF1DB954).copy(alpha = 0.1f) else Color.Transparent,
+                      shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(vertical = 8.dp),
+                  contentAlignment = Alignment.Center
+                ) {
+                  androidx.compose.material3.Text(
+                    text = "Standard Login",
+                    style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (loginMethod == "simple") Color(0xFF1DB954) else Color.White.copy(alpha = 0.6f))
+                  )
+                }
+
+                Box(
+                  modifier = Modifier
+                    .weight(1f)
+                    .clickable { loginMethod = "developer" }
+                    .border(
+                      width = 1.dp,
+                      color = if (loginMethod == "developer") Color(0xFF1DB954) else Color.White.copy(alpha = 0.15f),
+                      shape = RoundedCornerShape(8.dp)
+                    )
+                    .background(
+                      if (loginMethod == "developer") Color(0xFF1DB954).copy(alpha = 0.1f) else Color.Transparent,
+                      shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(vertical = 8.dp),
+                  contentAlignment = Alignment.Center
+                ) {
+                  androidx.compose.material3.Text(
+                    text = "Developer Login",
+                    style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (loginMethod == "developer") Color(0xFF1DB954) else Color.White.copy(alpha = 0.6f))
+                  )
+                }
+              }
+
               Spacer(modifier = Modifier.height(8.dp))
-              
-              OutlinedTextField(
-                value = editClientId,
-                onValueChange = { editClientId = it },
-                label = { androidx.compose.material3.Text("Spotify Client ID", color = Color.White.copy(alpha = 0.5f)) },
-                textStyle = TextStyle(color = Color.White, fontSize = 12.sp),
-                modifier = Modifier.fillMaxWidth(),
-                colors = TextFieldDefaults.colors(
-                  focusedContainerColor = Color.Black,
-                  unfocusedContainerColor = Color.Black,
-                  focusedTextColor = Color.White,
-                  unfocusedTextColor = Color.White
-                )
-              )
-              
-              Spacer(modifier = Modifier.height(6.dp))
-              
-              OutlinedTextField(
-                value = editClientSecret,
-                onValueChange = { editClientSecret = it },
-                label = { androidx.compose.material3.Text("Spotify Client Secret", color = Color.White.copy(alpha = 0.5f)) },
-                textStyle = TextStyle(color = Color.White, fontSize = 12.sp),
-                modifier = Modifier.fillMaxWidth(),
-                colors = TextFieldDefaults.colors(
-                  focusedContainerColor = Color.Black,
-                  unfocusedContainerColor = Color.Black,
-                  focusedTextColor = Color.White,
-                  unfocusedTextColor = Color.White
-                )
-              )
-              
-              Spacer(modifier = Modifier.height(10.dp))
-              
-              androidx.compose.material3.Text(
-                text = "How to connect:\n1. Visit developer.spotify.com & log in\n2. Create an App (name: PingleSpin)\n3. Edit Settings: set Redirect URI to:\n    https://localhost/callback\n4. Copy Client ID & Client Secret here and click Connect!",
-                style = TextStyle(fontSize = 9.sp, color = Color.White.copy(alpha = 0.4f), lineHeight = 12.sp)
-              )
-              
-              Spacer(modifier = Modifier.height(12.dp))
-              
-              if (spotifyIsLoading) {
+
+              if (loginMethod == "simple") {
                 androidx.compose.material3.Text(
-                  text = "Connecting & Authenticating...",
-                  style = TextStyle(fontSize = 11.sp, color = Color(0xFFFFD93D))
+                  text = "Login with your Spotify account credentials:",
+                  style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.7f))
                 )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedTextField(
+                  value = editUsername,
+                  onValueChange = { editUsername = it },
+                  label = { androidx.compose.material3.Text("Spotify Username or Email", color = Color.White.copy(alpha = 0.5f)) },
+                  textStyle = TextStyle(color = Color.White, fontSize = 12.sp),
+                  modifier = Modifier.fillMaxWidth(),
+                  colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Black,
+                    unfocusedContainerColor = Color.Black,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                  )
+                )
+                
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                OutlinedTextField(
+                  value = editPassword,
+                  onValueChange = { editPassword = it },
+                  label = { androidx.compose.material3.Text("Spotify Password", color = Color.White.copy(alpha = 0.5f)) },
+                  visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                  textStyle = TextStyle(color = Color.White, fontSize = 12.sp),
+                  modifier = Modifier.fillMaxWidth(),
+                  colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Black,
+                    unfocusedContainerColor = Color.Black,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                  )
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                if (spotifyIsLoading) {
+                  androidx.compose.material3.Text(
+                    text = "Connecting & Authenticating...",
+                    style = TextStyle(fontSize = 11.sp, color = Color(0xFFFFD93D))
+                  )
+                } else {
+                  MinimalistButton(
+                    text = "CONNECT SPOTIFY ACCOUNT",
+                    onClick = {
+                      if (editUsername.isBlank() || editPassword.isBlank()) {
+                        showToast(context, "Please enter both Username and Password!")
+                      } else {
+                        spotifyManager.loginWithUsernamePassword(editUsername, editPassword)
+                        showToast(context, "Successfully authenticated with Spotify!")
+                      }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                  )
+                }
               } else {
-                MinimalistButton(
-                  text = "CONNECT SPOTIFY ACCOUNT",
-                  onClick = {
-                    if (editClientId.isBlank() || editClientSecret.isBlank()) {
-                      showToast(context, "Please enter both Client ID and Client Secret!")
-                    } else {
-                      spotifyManager.saveCredentials(editClientId, editClientSecret)
-                      showLoginDialog = true
-                    }
-                  },
-                  modifier = Modifier.fillMaxWidth()
+                androidx.compose.material3.Text(
+                  text = "Setup your Spotify Developer Credentials to connect your account:",
+                  style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.7f))
                 )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedTextField(
+                  value = editClientId,
+                  onValueChange = { editClientId = it },
+                  label = { androidx.compose.material3.Text("Spotify Client ID", color = Color.White.copy(alpha = 0.5f)) },
+                  textStyle = TextStyle(color = Color.White, fontSize = 12.sp),
+                  modifier = Modifier.fillMaxWidth(),
+                  colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Black,
+                    unfocusedContainerColor = Color.Black,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                  )
+                )
+                
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                OutlinedTextField(
+                  value = editClientSecret,
+                  onValueChange = { editClientSecret = it },
+                  label = { androidx.compose.material3.Text("Spotify Client Secret", color = Color.White.copy(alpha = 0.5f)) },
+                  textStyle = TextStyle(color = Color.White, fontSize = 12.sp),
+                  modifier = Modifier.fillMaxWidth(),
+                  colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Black,
+                    unfocusedContainerColor = Color.Black,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                  )
+                )
+                
+                Spacer(modifier = Modifier.height(10.dp))
+                
+                androidx.compose.material3.Text(
+                  text = "How to connect:\n1. Visit developer.spotify.com & log in\n2. Create an App (name: PingleSpin)\n3. Edit Settings: set Redirect URI to:\n    https://localhost/callback\n4. Copy Client ID & Client Secret here and click Connect!",
+                  style = TextStyle(fontSize = 9.sp, color = Color.White.copy(alpha = 0.4f), lineHeight = 12.sp)
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                if (spotifyIsLoading) {
+                  androidx.compose.material3.Text(
+                    text = "Connecting & Authenticating...",
+                    style = TextStyle(fontSize = 11.sp, color = Color(0xFFFFD93D))
+                  )
+                } else {
+                  MinimalistButton(
+                    text = "CONNECT DEVELOPER ACCOUNT",
+                    onClick = {
+                      if (editClientId.isBlank() || editClientSecret.isBlank()) {
+                        showToast(context, "Please enter both Client ID and Client Secret!")
+                      } else {
+                        spotifyManager.saveCredentials(editClientId, editClientSecret)
+                        showLoginDialog = true
+                      }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                  )
+                }
               }
             } else {
+              val connectedMsg = if (spotifyIsSimulated) {
+                "✅ Account Connected (Simulated: $spotifyUsername)!"
+              } else {
+                "✅ Account Connected Successfully!"
+              }
               androidx.compose.material3.Text(
-                text = "✅ Account Connected Successfully!",
+                text = connectedMsg,
                 style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1DB954))
               )
               
